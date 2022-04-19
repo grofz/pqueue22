@@ -1,7 +1,7 @@
 ! Implementation of priority queue.
 ! Ref: Advanced algorithms and data structures, 2021 (Chapter 2)
 !
-! Cf: test/implement.f90 for an example of a concrete data type
+! See: test/implement.f90 for an example of a concrete data type
 
   module pqueue_mod
     implicit none
@@ -10,7 +10,11 @@
 
     integer, parameter :: ERR_EMPTY = 1, ERR_OK = 0
 
-    ! abstract container where data are stored
+    ! Abstract container where data are stored:
+    ! # "priority" method must be implemented
+    ! # "updateindex" and "element2index" are used for queue
+    !   "remove" and "update" methods only, so their implementation is
+    !   optional.
     type, abstract :: element_t
     contains
       procedure(priority), deferred :: priority
@@ -19,39 +23,42 @@
     end type
 
     abstract interface
-      function priority(this) 
+      ! get the priority of the element
+      integer function priority(this) 
         import element_t
         class(element_t), intent(in) :: this
-        integer :: priority
       end function
 
+      ! advise the element about its index in the internal array
       subroutine updateindex(this, index)
         import element_t
         class(element_t), intent(inout) :: this
         integer, intent(in) :: index
       end subroutine
 
-      function element2index(this) result(index)
+      ! get the index in the internal array
+      integer function element2index(this) result(index)
         import element_t
         class(element_t), intent(in) :: this
-        integer :: index
       end function
     end interface
 
 
-    ! private container to allow polymorphic variable on the lhs of
-    ! the implicit assignment
+
+    ! Private wrapping type to allow polymorphic variable at the lhs
+    ! of the implicit assignment (assignment implementation is optional)
     type :: element_ptr
       private
       class(element_t), allocatable :: p
     end type
 
 
-    ! priority queue implemented as a binary heap
+
+    ! Priority queue implemented using a binary heap
     type :: pqueue_t
       private
       type(element_ptr), allocatable :: array(:)
-      integer :: n=0, nalloc=0
+      integer :: n = 0, nalloc = 0
     contains
       procedure :: top       
       procedure :: peek
@@ -62,14 +69,42 @@
       procedure :: validate
     end type
 
+    interface pqueue_t
+      module procedure pqueue_init
+    end interface
+
   contains
+
+    function pqueue_init(elements) result(this)
+      type(pqueue_t) :: this
+      class(element_t), intent(in) :: elements(:)
+!
+! Make new priority queue from an array of elements
+!
+      integer :: i
+
+      this % n = size(elements)
+      this % nalloc = this % n
+      allocate(this % array(this % nalloc))
+      do i = 1, this % n
+        this % array(i) % p = elements(i)
+        call this % array(i) % p % updateindex(i)
+      enddo
+
+      ! heapify: check and correct heap property for all non-leaf nodes
+      do i = this % n / 2, 1, -1
+        call pushDown(this, i)
+      enddo
+    end function pqueue_init
+
+
 
     subroutine top(this, element, ierr)
       class(pqueue_t), intent(inout) :: this
       class(element_t), intent(out), allocatable :: element
       integer, optional, intent(out) :: ierr
  !
- ! remove element with the highest priority from the queue
+ ! Remove element with the highest priority from the queue
  !
       integer :: ierr0
 
@@ -87,21 +122,21 @@
       element = this % array(1) % p
       call this % array(1) % p % updateindex(-1)
 
+      ! replace removed element by the tail element
       if (this % n /= 1) then
         this % array(1) = this % array(this % n)
         call this % array(1) % p % updateindex(1)
       endif
       this % n = this % n - 1
 
+      ! repair heap
+      if (this % n > 1) call pushDown(this, 1)
+
+      ! free space for an empty queue
       if (this % n == 0) then
         deallocate(this % array)
         this % nalloc = 0
-        return
       endif
-
-      if (this % n == 1) return
-
-      call pushDown(this, 1)
     end subroutine top
 
 
@@ -112,7 +147,7 @@
       class(element_t), allocatable  :: element
  !
  ! return element with the highest priority but leave the queue unchanged
- ! optional "index" alows to iterate through the whole queue
+ ! optional "index" alows to iterate and peek through the whole queue
  !
       if (this % n < 1) error stop 'peek on empty queue'
       if (.not. present(index)) then
@@ -135,11 +170,13 @@
       type(element_ptr), allocatable :: newarray(:)
       integer :: i
 
+      ! if queue is empty
       if (.not. allocated(this % array)) then
         this % nalloc = 1
         allocate(this % array(this % nalloc))
       endif
 
+      ! add additional space if array is full
       if (this % n == this % nalloc) then
         this % nalloc = this % nalloc * 2
         allocate(newarray(this % nalloc))
@@ -185,6 +222,7 @@
         this % n = this % n - 1
       endif
 
+      ! free space for an empty queue
       if (this % n == 0) then
         deallocate(this % array)
         this % nalloc = 0
@@ -211,6 +249,7 @@
           error stop 'update - element2index value out of bounds'
 
       old_priority = this % array(i) % p % priority()
+      call this % array(i) % p % updateindex(-1)
       this % array(i) % p = newelement
       new_priority = this % array(i) % p % priority()
       call this % array(i) % p % updateindex(i)
@@ -226,7 +265,7 @@
 
     pure function pqueue_size(this)
 !
-! size of the queue
+! get size of the queue
 !
       integer :: pqueue_size
       class(pqueue_t), intent(in) :: this

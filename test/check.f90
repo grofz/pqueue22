@@ -1,8 +1,9 @@
   program check
     integer :: i
-    real :: s0,s1
+    real :: s0, s1
     logical :: ival
-    !call test1()
+
+    call test1()
 
     write(*,'(a)',advance='no') 'Enter size ? '
     read(*,*) i
@@ -25,6 +26,7 @@
     type(pqueue_t) :: q
     type(myelement_t), target :: e(10) 
     class(element_t), allocatable  :: epeek, erem
+    type(myelement_t), allocatable :: epeek2, erem2
     integer :: i
 
     ! Sample data - insert
@@ -40,6 +42,17 @@
     e(10) = myelement_t('10summer', 5)
     do i=1, 10
       e(i) % original => e(i)
+    enddo
+
+    ! constructor (first half)...
+    q = pqueue_t(e(1:5))
+    print *, 'valid = ', q % validate()
+    print *, 'indices ', e(1:5) % index
+    call print_array()
+    print *
+
+    ! ...and insert (second half)
+    do i=6,10
       call q % insert(e(i))
     enddo
     print *, 'valid = ', q % validate()
@@ -71,6 +84,7 @@
 
     ! test peek
     print *, "Peek:"
+    !epeek2 = q % peek() ! not working, must define assignment
     epeek = q % peek()
     select type(epeek)
     type is (myelement_t)
@@ -121,10 +135,12 @@
 
     call random_number(rnd)
     e % ipriority = rnd*n
+
     do i=1,n
       e(i) % original => e(i)
-      call q % insert(e(i))
+      !call q % insert(e(i))
     enddo
+    q = pqueue_t(e)
     print *, 'size =', q % size(), ' valid =', q % validate()
 
     last_priority = huge(last_priority)

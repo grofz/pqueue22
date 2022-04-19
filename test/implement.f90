@@ -19,11 +19,12 @@
 
   contains
 
-    function priority(this)
+    integer function priority(this)
       class(myelement_t), intent(in) :: this
-      integer :: priority
       priority = this % ipriority
     end function
+
+
 
     subroutine updateindex(this, index)
       class(myelement_t), intent(inout) :: this
@@ -40,8 +41,9 @@
       endif
     end subroutine 
 
-    function element2index(this) result(index)
-      integer :: index
+
+
+    integer function element2index(this) result(index)
       class(myelement_t), intent(in) :: this
 ! 
 ! Called by "update" and "remove" methods to localize the index.
