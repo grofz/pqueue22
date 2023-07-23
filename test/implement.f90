@@ -50,7 +50,12 @@
 ! Return valid index (1...n) to the element
 ! Return "-1" if element is not present
 !
-      index = this % index
+     ! index = this % index
+      if (associated(this % original)) then
+        index = this % original % index
+      else
+        print *, 'warning, index not associated'
+      endif
     end function
 
 

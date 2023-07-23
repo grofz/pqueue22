@@ -2,13 +2,25 @@
     integer :: i
     real :: s0, s1
     logical :: ival
+    interface
+      subroutine test1()
+      end subroutine
 
+      subroutine test2(n, ival)
+        implicit none
+        integer, intent(in) :: n
+        logical :: ival
+      end subroutine
+    end interface
+
+    print '(a)','==== TEST 1 ===='
     call test1()
 
     write(*,'(a)',advance='no') 'Enter size ? '
     read(*,*) i
     ival = .true.
     if (i>9999) ival = .false.
+    print '(a)','==== TEST 2 ===='
     call cpu_time(s0)
     call test2(i,ival)
     call cpu_time(s1)
@@ -25,8 +37,7 @@
 
     type(pqueue_t) :: q
     type(myelement_t), target :: e(10) 
-    class(element_t), allocatable  :: epeek, erem
-    type(myelement_t), allocatable :: epeek2, erem2
+    class(element_t), allocatable  :: erem
     integer :: i
 
     ! Sample data - insert
@@ -56,7 +67,7 @@
       call q % insert(e(i))
     enddo
     print *, 'valid = ', q % validate()
-    print *, 'indices ', e(1:5) % index
+    print *, 'indices ', e(1:size(e)) % index
     call print_array()
     print *
 
@@ -65,55 +76,59 @@
     e(3) % ipriority = 40
     call q % update(e(3), e(3))
     print *, 'valid = ', q % validate()
-    print *, 'indices ', e(1:5) % index
+    print *, 'indices ', e(1:size(e)) % index
     call print_array()
 
     print *, 'Update ', e(3) % item
     e(3) % ipriority = 4
     call q % update(e(3), e(3))
     print *, 'valid = ', q % validate()
-    print *, 'indices ', e(1:5) % index
+    print *, 'indices ', e(1:size(e)) % index
     call print_array()
 
     ! test remove
     print *, 'Remove ', e(1) % item
     call q % remove(e(1))
     print *, 'valid = ', q % validate()
-    print *, 'indices ', e(1:5) % index
+    print *, 'indices ', e(1:size(e)) % index
     call print_array()
 
     ! test peek
     print *, "Peek:"
     !epeek2 = q % peek() ! not working, must define assignment
-    epeek = q % peek()
-    select type(epeek)
-    type is (myelement_t)
-      print '("Item =",a," priority=",i0)', epeek % item, epeek % ipriority 
-    end select
+    !epeek = q % peek()
+    associate(epeek2=>q%peek())
+      select type(epeek2)
+      class is (myelement_t)
+        print '("Item =",a," priority=",i0)', epeek2 % item, epeek2 % ipriority 
+      end select
+    end associate
     print *, 'valid = ', q % validate()
 
     print *, "Top:"
     do i=1,6
       call q % top(erem)
       select type(erem)
-      type is (myelement_t)
+      class is (myelement_t)
         print '("Item =",a," priority=",i0)', erem % item, erem % ipriority 
       end select
       print *, 'valid = ', q % validate()
-      print *, 'indices ', e(1:5) % index
+      print *, 'indices ', e(1:size(e)) % index
       call print_array()
     enddo
 
   contains
     subroutine print_array
-      class(myelement_t), allocatable :: eout
-      integer :: i
+      integer :: ii
       if (q % size() == 0) write(fid,*) 'Empty'
-      do i = 1, q % size()
-        !eout = q % array(i) % p
-        eout = q % peek(i)
-        call eout % display(fid)
-        !print '("Item =",a," priority=",i0)', eout % item, eout % ipriority 
+      do ii = 1, q % size()
+        associate (eout => q % peek(ii))
+          select type(eout)
+          class is (myelement_t)
+            call eout % display(fid)
+        !print '("Item =", ," priority=",i0)', eout % item, eout % ipriority 
+          end select
+        end associate
       enddo
       write(fid,*)
     end subroutine print_array
@@ -134,7 +149,7 @@
     real :: rnd(n)
 
     call random_number(rnd)
-    e % ipriority = rnd*n
+    e % ipriority = int(rnd*n)
 
     do i=1,n
       e(i) % original => e(i)
